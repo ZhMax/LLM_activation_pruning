@@ -8,7 +8,7 @@ from modelling.blocks.mlp_act_sp import MLP_act_sp
 from modelling.layers.linear_act_sp import Linear_act_sp
 from training.text import run_train
 from training.sequential import sequential_parameter_training
-
+from training.grad_accumulation import compute_grads
 
 def weight_prune(layer, sparsity_type, sparsity_ratio: float, prune_n, prune_m, name):
     w = layer.weight.data
@@ -85,7 +85,7 @@ class ActPruneRunner(BaseRunner):
                         prune_m=prune_m,
                         name=name[(ind + 1) :],
                     )
-                    if sparsity_type in ("semi-structured_act_magnitude","unstructured_act_magnitude","semi-structured_act_magnitude_var_weight"):
+                    if sparsity_type in ("semi-structured_act_magnitude","unstructured_act_magnitude","semi-structured_act_magnitude_var_weight", "semi-structured_act_grad_acc"):
                         sparse_linear = Linear_act_sp.from_original(module, **kvargs)
                     elif sparsity_type in ("semi-structured_weight_magnitude", "unstructured_weight_magnitude"):
                         sparse_linear = weight_prune(module, **kvargs)
@@ -186,6 +186,9 @@ class ActPruneRunner(BaseRunner):
                     param.requires_grad = False
             elif self.config["finetuning"]["type"] == "by_layers":
                 sequential_parameter_training(self.config, self.model, trainloader)
+
+        if self.config["pruning"]["sparsity_type"] == "semi-structured_act_grad_acc":
+            compute_grads(self.model, self.tokenizer, self.config)
                 
 
         benchmarks = self.config["benchmarks"]
