@@ -8,7 +8,8 @@ def get_model(model_path, seqlen):
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code = True,
-        torch_dtype='auto',
+        # torch_dtype='auto',
+        torch_dtype=torch.bfloat16,
         device_map = 'cuda:0',
         # attn_implementation = 'eager'
     )

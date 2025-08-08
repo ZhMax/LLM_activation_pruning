@@ -30,6 +30,11 @@ class Linear_act_sp(nn.Module):
         self.name = name
         self.additional_transformation = additional_transformation
 
+        if self.transformation_type == "learnable":
+            v = torch.ones((1, out_features))
+            self.v = nn.Parameter(v)
+
+
     def unstructured_magnitude_pruner(self, x, sparsity_ratio):
         orig_shape = x.shape
         num_elements_to_keep = int(orig_shape[1] * (1.0 - sparsity_ratio))
@@ -41,6 +46,17 @@ class Linear_act_sp(nn.Module):
         return x_sp
 
     def semi_structural_magnitude_pruner(self, x, prune_n=2, prune_m=4):
+        orig_shape = x.shape
+        x_1d = x.view(-1, prune_m)
+
+        _, idx = torch.topk(x_1d.abs(), prune_n, dim=1, sorted=False)
+        mask_1d = torch.zeros_like(x_1d)
+        mask_1d.scatter_(dim=1, index=idx, value=True)
+        mask = mask_1d.view(orig_shape)
+        x_sp = x * mask
+        return x_sp
+    
+    def semi_structural_magnitude_columnwise_pruner(self, x, prune_n=2, prune_m=4):
         orig_shape = x.shape
         x_1d = x.view(-1, prune_m)
 
@@ -63,7 +79,7 @@ class Linear_act_sp(nn.Module):
         col_norms = torch.sqrt(torch.sum(x ** 2, dim=0, keepdim=True))  # sqrt(sum_p X_pt^2)
     
         L_metric = abs_x / (denominator + 1e-8) * col_norms
-    
+
         orig_shape = L_metric.shape
         L_metric_1d = L_metric.view(-1, prune_m)
     
@@ -75,7 +91,7 @@ class Linear_act_sp(nn.Module):
         return x_sp
 
     def variance_factor(self, x, x_sp):
-        var_ratio = torch.var(x) / torch.clamp(torch.var(x_sp), min=1e-9)
+        var_ratio = torch.var(x, dim=1, keepdim=True) / torch.clamp(torch.var(x_sp, dim=1, keepdim=True), min=1e-9)
         v = torch.sqrt(var_ratio)
         return v
     
@@ -85,7 +101,8 @@ class Linear_act_sp(nn.Module):
         return corr_x_sp
 
     def bias_term(self, x):
-        eta = torch.mean(x, dim=1, keepdim=True)
+        # eta = torch.mean(x, dim=1, keepdim=True)
+        eta = torch.median(x, dim=1, keepdim=True)[0]
         return eta
 
     def shift_transformation(self, x, pruner, eta):
@@ -103,18 +120,32 @@ class Linear_act_sp(nn.Module):
         return x_flat_sp @ scaled_weight.t()
         
     def learnable_transformation(self, x, pruner):
-        if not hasattr(self, 'eta'):
-            self.eta = nn.Parameter(self.bias_term(x))
-            
-        bs = x.shape[0]
-        x_sp_shifted = self.shift_transformation(x, pruner, self.eta[:bs])
+        x_sp = pruner(x)
 
-        if not hasattr(self, 'v'):
-            x_sp = pruner(x)
-            self.v = nn.Parameter(self.variance_factor(x, x_sp))
+        # eta = self.bias_term(x)
+        # x_shifted = x - eta
+        # x_sp = pruner(x_shifted)
+        # v = self.variance_factor(x_shifted, x_sp)
+        # x_sp_shifted = v * x_sp + eta
+
         
-        corr_x_sp_shifted = self.v * x_sp_shifted
-        return corr_x_sp_shifted
+        # eta = self.local_bias_term(x)
+        # x_sp_shifted = self.shift_transformation(x, pruner, eta)
+
+
+        # if not hasattr(self, 'eta'):
+        #     self.eta = nn.Parameter(self.bias_term(x))
+            
+        # bs = x.shape[0]
+        # x_sp_shifted = self.shift_transformation(x, pruner, self.eta[:bs])
+
+        # if not hasattr(self, 'v'):
+        #     x_sp = pruner(x)
+        #     self.v = nn.Parameter(self.variance_factor(x, x_sp))
+        
+        # corr_x_sp_shifted = self.v * x_sp_shifted
+        
+        return x_sp
 
     def prune_with_additional_transformation(self, x, pruner):
         if self.additional_transformation == "scaling":
@@ -140,7 +171,11 @@ class Linear_act_sp(nn.Module):
             elif self.transformation_type == "shift":
                 out = self.shift_transformation(x_flat, pruner, self.bias_term(x_flat)) @ self.weight.t()
             elif self.transformation_type == "learnable":
-                out = self.learnable_transformation(x_flat, pruner) @ self.weight.t()
+                x_sp = self.learnable_transformation(x_flat, pruner)
+                # x_sp = torch.sparse.to_sparse_semi_structured(x_sp)
+                out = torch.matmul(x_sp, self.weight.t())
+                out = self.v * out
+                # x_sp = x_sp.to_dense()
             elif self.transformation_type == "scaling" or self.additional_transformation == "scaling":
                 out = self.scaling_transformation(x_flat, pruner)
             else:
@@ -191,6 +226,14 @@ class Linear_act_sp(nn.Module):
             name=name,
             additional_transformation=additional_transformation,
         )
-        linear_sp.weight = orig_linear.weight
+
+        linear_sp.weight = orig_linear.weight.data
+
+        if transformation_type == "learnable":
+            linear_sp.v.data = linear_sp.v.data.to(
+                # dtype=orig_linear.weight.dtype,
+                dtype=torch.bfloat16,
+                device=orig_linear.weight.device
+            )
 
         return linear_sp

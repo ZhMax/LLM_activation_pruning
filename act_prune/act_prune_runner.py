@@ -6,6 +6,7 @@ from base_runner import BaseRunner
 from modelling.blocks.llama_attn import LlamaAttention_act_sp
 from modelling.blocks.mlp_act_sp import MLP_act_sp
 from modelling.layers.linear_act_sp import Linear_act_sp
+from training.text import run_train
 
 
 def weight_prune(layer, sparsity_type, sparsity_ratio: float, prune_n, prune_m, name):
@@ -174,6 +175,11 @@ class ActPruneRunner(BaseRunner):
             logging.info("No sparsity applied, using original model.")
         else:
             self.replace_linear_layers()
+
+        if self.config["pruning"]["transformation_type"] == "learnable":
+            self.model = run_train(self.model, self.tokenizer, self.config)
+            for name, param in self.model.named_parameters():
+                param.requires_grad = False
 
         benchmarks = self.config["benchmarks"]
 

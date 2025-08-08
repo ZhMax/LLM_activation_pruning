@@ -14,32 +14,29 @@ model:
     # path: google/gemma-3-4b-it
     # path: NousResearch/Llama-2-7b-chat-hf
     # path: Qwen/Qwen2.5-7B-Instruct
-    # path: google/gemma-3-4b-it
-    path: meta-llama/Llama-2-7b
+    path: /home/LLM/weights/Llama-2-7b-hf
+    # path: /home/LLM/weights/Llama-3.1-8B-Instruct
     seqlen: 2048
 benchmarks:
     ppl_wikitext2:
         run_ppl: True
-        batch_size: 8
+        batch_size: 1
     harness:
-        run_lm_eval: True
+        run_lm_eval: False
         tasks:
             [
-                "boolq",
-                "winogrande",
-                "piqa",
-                "arc_easy"
+                "boolq"
             ]
         num_fewshot: 0
         batch_size: 1024
         apply_chat_template: False # for instructive models run with True and False
 pruning:
-    sparsity_type: semi-structured_act_magnitude # unstructured_act_magnitude, unstructured_weight_magnitude
-    transformation_type: learnable # none
-    sparsity_ratio: 0.2 # for unstructured pruning
-    additional_transformation: "scaling"
-    prune_n: 8
-    prune_m: 16
+    sparsity_type: semi-structured_act_magnitude # unstructured_act_magnitude, unstructured_weight_magnitude, semi-structured_act_magnitude, semi_structural_L_pruner
+    transformation_type: learnable  # none learnable
+    # sparsity_ratio: 0.2 # for unstructured pruning
+    additional_transformation: null
+    prune_n: 2
+    prune_m: 4
     module: layers #layers mlp_blocks attn_blocks
     target_modules:
         [
@@ -52,3 +49,24 @@ pruning:
             "down_proj",
         ]
 
+finetuning:
+    output_dir: /home/LLM_activation_pruning/act_prune/artifacts/models/llama2_7b_wiki
+    dataset_name: Salesforce/wikitext
+    dataset_config_name: wikitext-2-raw-v1
+    seed: 11
+    max_seq_length: 2048
+    preprocessing_num_workers: 8
+    trust_remote_code: True
+    num_train_epochs: 1
+    # max_steps: 1000
+    learning_rate: !!float 1e-4
+    weight_decay: 0.0
+    lr_scheduler_type: linear
+    warmup_ratio:  0.03
+    per_device_train_batch_size: 1
+    per_device_eval_batch_size: 1
+    gradient_accumulation_steps: 16
+    gradient_checkpointing: False
+    save_strategy: steps
+    save_steps: 200
+    report_to: null
