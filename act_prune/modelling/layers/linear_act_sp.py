@@ -34,6 +34,8 @@ class Linear_act_sp(nn.Module):
             v = torch.ones((1, out_features))
             self.v = nn.Parameter(v)
 
+        if self.sparsity_type == "semi-structured_act_magnitude_var_weight":
+            self.var_weight = None
 
     def unstructured_magnitude_pruner(self, x, sparsity_ratio):
         orig_shape = x.shape
@@ -87,6 +89,17 @@ class Linear_act_sp(nn.Module):
         mask_1d = torch.ones_like(L_metric_1d, dtype=torch.bool)
         mask_1d.scatter_(dim=1, index=idx, value=False)
         mask = mask_1d.view(orig_shape).view_as(x)
+        x_sp = x * mask
+        return x_sp
+
+    def semi_structural_magnitude_var_weight_pruner(self, x, prune_n=2, prune_m=4):
+        orig_shape = x.shape
+        x_1d = (x * self.var_weight).view(-1, prune_m)
+
+        _, idx = torch.topk(x_1d.abs(), prune_n, dim=1, sorted=False)
+        mask_1d = torch.zeros_like(x_1d)
+        mask_1d.scatter_(dim=1, index=idx, value=True)
+        mask = mask_1d.view(orig_shape)
         x_sp = x * mask
         return x_sp
 
@@ -162,17 +175,21 @@ class Linear_act_sp(nn.Module):
             out = x @ self.weight.t()
 
         # Semi-structured with transformation logic
-        elif self.sparsity_type == "semi-structured_act_magnitude":
-            pruner = lambda z: self.semi_structural_magnitude_pruner(z, self.prune_n, self.prune_m)
+        elif self.sparsity_type in ["semi-structured_act_magnitude", "semi-structured_act_magnitude_var_weight"]:
+            if self.sparsity_type == "semi-structured_act_magnitude":
+                pruner = lambda z: self.semi_structural_magnitude_pruner(z, self.prune_n, self.prune_m)
+            
+            elif self.sparsity_type == "semi-structured_act_magnitude_var_weight":
+                pruner = lambda z: self.semi_structural_magnitude_var_weight_pruner(z, self.prune_n, self.prune_m)
 
             if self.transformation_type == "variance":
-                x_sp = pruner(x_flat)
+                x_sp = pruner(x_flat) 
                 out = self.variance_transformation(x_flat, x_sp) @ self.weight.t()
+
             elif self.transformation_type == "shift":
                 out = self.shift_transformation(x_flat, pruner, self.bias_term(x_flat)) @ self.weight.t()
             elif self.transformation_type == "learnable":
                 x_sp = self.learnable_transformation(x_flat, pruner)
-                # x_sp = torch.sparse.to_sparse_semi_structured(x_sp)
                 out = torch.matmul(x_sp, self.weight.t())
                 out = self.v * out
                 # x_sp = x_sp.to_dense()
@@ -235,5 +252,8 @@ class Linear_act_sp(nn.Module):
                 dtype=torch.bfloat16,
                 device=orig_linear.weight.device
             )
+        
+        if sparsity_type == "semi-structured_act_magnitude_var_weight":
+            linear_sp.var_weight = torch.var(orig_linear.weight.data, dim=0, keepdim=True)
 
         return linear_sp

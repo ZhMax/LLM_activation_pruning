@@ -83,7 +83,7 @@ class ActPruneRunner(BaseRunner):
                         prune_m=prune_m,
                         name=name[(ind + 1) :],
                     )
-                    if sparsity_type in ("semi-structured_act_magnitude","unstructured_act_magnitude"):
+                    if sparsity_type in ("semi-structured_act_magnitude","unstructured_act_magnitude","semi-structured_act_magnitude_var_weight"):
                         sparse_linear = Linear_act_sp.from_original(module, **kvargs)
                     elif sparsity_type in ("semi-structured_weight_magnitude", "unstructured_weight_magnitude"):
                         sparse_linear = weight_prune(module, **kvargs)

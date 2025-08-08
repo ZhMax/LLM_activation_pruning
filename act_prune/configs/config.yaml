@@ -31,8 +31,8 @@ benchmarks:
         batch_size: 1024
         apply_chat_template: False # for instructive models run with True and False
 pruning:
-    sparsity_type: semi-structured_act_magnitude # unstructured_act_magnitude, unstructured_weight_magnitude, semi-structured_act_magnitude, semi_structural_L_pruner
-    transformation_type: learnable  # none learnable
+    sparsity_type: semi-structured_act_magnitude_var_weight # unstructured_act_magnitude, unstructured_weight_magnitude, semi-structured_act_magnitude, semi_structural_L_pruner
+    transformation_type: variance  # none learnable
     # sparsity_ratio: 0.2 # for unstructured pruning
     additional_transformation: null
     prune_n: 2
