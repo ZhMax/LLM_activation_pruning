@@ -107,7 +107,6 @@ class BaseRunner(ABC):
             batch_size=config["batch_size"],
             apply_chat_template=config["apply_chat_template"],
             confirm_run_unsafe_code=True,
-            trust_remote_code=True,
             device="cuda:0"
         )
         return results["results"]

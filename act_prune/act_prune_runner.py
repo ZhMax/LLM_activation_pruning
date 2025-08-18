@@ -7,6 +7,7 @@ from modelling.blocks.llama_attn import LlamaAttention_act_sp
 from modelling.blocks.mlp_act_sp import MLP_act_sp
 from modelling.layers.linear_act_sp import Linear_act_sp
 from training.text import run_train
+from training.sequential import sequential_parameter_training
 
 
 def weight_prune(layer, sparsity_type, sparsity_ratio: float, prune_n, prune_m, name):
@@ -41,6 +42,7 @@ def weight_prune(layer, sparsity_type, sparsity_ratio: float, prune_n, prune_m, 
 
     new_layer.name = name
     return new_layer
+
 class ActPruneRunner(BaseRunner):
 
     def __init__(self, config):
@@ -177,14 +179,19 @@ class ActPruneRunner(BaseRunner):
             self.replace_linear_layers()
 
         if self.config["pruning"]["transformation_type"] == "learnable":
-            self.model = run_train(self.model, self.tokenizer, self.config)
-            for name, param in self.model.named_parameters():
-                param.requires_grad = False
+            trainloader, testloader = self.load_data("wikitext2")
+            if self.config["finetuning"]["type"] == "global":
+                self.model = run_train(self.model, self.tokenizer, self.config)
+                for name, param in self.model.named_parameters():
+                    param.requires_grad = False
+            elif self.config["finetuning"]["type"] == "by_layers":
+                sequential_parameter_training(self.config, self.model, trainloader)
+                
 
         benchmarks = self.config["benchmarks"]
 
         if benchmarks["ppl_wikitext2"]["run_ppl"]:
-            _, testloader = self.load_data("wikitext2")
+            trainloader, testloader = self.load_data("wikitext2")
             ppl, time = self.measure_ppl(testloader, bs=benchmarks["ppl_wikitext2"]["batch_size"])
 
             logging.info(f'wikitext2: {ppl}, computation time: {time}')

@@ -31,8 +31,8 @@ class Linear_act_sp(nn.Module):
         self.additional_transformation = additional_transformation
 
         if self.transformation_type == "learnable":
-            v = torch.ones((1, out_features))
-            self.v = nn.Parameter(v)
+            v = torch.zeros((1, out_features))
+            self.shift = nn.Parameter(v)
 
         if self.sparsity_type == "semi-structured_act_magnitude_var_weight":
             self.var_weight = None
@@ -190,8 +190,8 @@ class Linear_act_sp(nn.Module):
                 out = self.shift_transformation(x_flat, pruner, self.bias_term(x_flat)) @ self.weight.t()
             elif self.transformation_type == "learnable":
                 x_sp = self.learnable_transformation(x_flat, pruner)
-                out = torch.matmul(x_sp, self.weight.t())
-                out = self.v * out
+                out = torch.matmul(x_sp, self.weight.t()) + self.shift
+                # out = self.v * out
                 # x_sp = x_sp.to_dense()
             elif self.transformation_type == "scaling" or self.additional_transformation == "scaling":
                 out = self.scaling_transformation(x_flat, pruner)
@@ -247,9 +247,9 @@ class Linear_act_sp(nn.Module):
         linear_sp.weight = orig_linear.weight.data
 
         if transformation_type == "learnable":
-            linear_sp.v.data = linear_sp.v.data.to(
-                # dtype=orig_linear.weight.dtype,
-                dtype=torch.bfloat16,
+            linear_sp.shift.data = linear_sp.shift.data.to(
+                dtype=orig_linear.weight.dtype,
+                # dtype=torch.bfloat16,
                 device=orig_linear.weight.device
             )
         
