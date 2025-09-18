@@ -9,23 +9,33 @@ paths:
     checkpoint_dir: "artifacts/checkpoints/"
     results_dir: "artifacts/results/"
 model:
-    # path: "google/gemma-3-4b-it"
-    # path: Qwen/Qwen2.5-7B-Instruct
     # path: google/gemma-3-4b-it
     # path: NousResearch/Llama-2-7b-chat-hf
-    # path: Qwen/Qwen2.5-7B-Instruct
-    path: /home/LLM/weights/Llama-2-7b-hf
-    # path: /home/LLM/weights/Llama-3.1-8B-Instruct
+    path: /workspace/kazistova/models/qwen
+    # path: /workspace/kazistova/models/Llama-3.1-8B-Instruct
     seqlen: 2048
 benchmarks:
     ppl_wikitext2:
         run_ppl: True
         batch_size: 1
     harness:
-        run_lm_eval: False
+        run_lm_eval: True
         tasks:
+            # [
+            #     "boolq"
+            # ]
             [
-                "boolq"
+                "boolq",
+                "winogrande",
+                "piqa",
+                "arc_easy"
+                # "arc_challenge",
+                # "hellaswag",
+                # "openbookqa",
+                # "rte",
+                # "mmlu",
+                # "lambada_standard",
+                # "lambada_openai"
             ]
         num_fewshot: 0
         batch_size: 1024
@@ -35,24 +45,32 @@ pruning:
     transformation_type: learnable  # none learnable
     # sparsity_ratio: 0.2 # for unstructured pruning
     additional_transformation: null
-    prune_n: 2
-    prune_m: 4
+    prune_n: 8
+    prune_m: 16
     module: layers #layers mlp_blocks attn_blocks
     target_modules:
         [
-            "q_proj",
-            "k_proj",
-            "v_proj",
+            # "q_proj",
+            # "k_proj",
+            # "v_proj",
             "o_proj",
             "gate_proj",
             "up_proj",
-            "down_proj",
+            "down_proj"
         ]
+        # [
+        #     "k_proj",
+        #     "v_proj",
+        #     "gate_proj",
+        #     "down_proj",
+        # ]
 
 finetuning:
-    output_dir: /home/LLM_activation_pruning/act_prune/artifacts/models/llama2_7b_wiki
+    output_dir: /workspace/kazistova/LLM_activation_pruning/act_prune/artifacts/models/llama3_1_8b_wiki
     dataset_name: Salesforce/wikitext
     dataset_config_name: wikitext-2-raw-v1
+    type: "global"
+    parameters: "r-sparce"
     seed: 11
     max_seq_length: 2048
     preprocessing_num_workers: 8

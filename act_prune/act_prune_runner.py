@@ -63,6 +63,7 @@ class ActPruneRunner(BaseRunner):
         sparsity_type = self.config["pruning"]["sparsity_type"]
         transformation_type = self.config["pruning"]["transformation_type"]
         sparsity_ratio = self.config["pruning"].get("sparsity_ratio", None)
+        learnable_params = self.config["finetuning"].get("parameters", None)
         prune_n = self.config["pruning"].get("prune_n", None)
         prune_m = self.config["pruning"].get("prune_m", None)
         target_layers = self.config["pruning"]["target_modules"]
@@ -84,6 +85,7 @@ class ActPruneRunner(BaseRunner):
                         prune_n=prune_n,
                         prune_m=prune_m,
                         name=name[(ind + 1) :],
+                        learnable_params=learnable_params
                     )
                     if sparsity_type in ("semi-structured_act_magnitude","unstructured_act_magnitude","semi-structured_act_magnitude_var_weight"):
                         sparse_linear = Linear_act_sp.from_original(module, **kvargs)
@@ -186,6 +188,9 @@ class ActPruneRunner(BaseRunner):
                     param.requires_grad = False
             elif self.config["finetuning"]["type"] == "by_layers":
                 sequential_parameter_training(self.config, self.model, trainloader)
+                # self.model = sequential_parameter_training(self.config, self.model, trainloader)
+                # for name, param in self.model.named_parameters():
+                #     param.requires_grad = False
                 
 
         benchmarks = self.config["benchmarks"]

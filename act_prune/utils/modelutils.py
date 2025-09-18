@@ -10,7 +10,7 @@ def get_model(model_path, seqlen):
         trust_remote_code = True,
         # torch_dtype='auto',
         torch_dtype=torch.bfloat16,
-        device_map = 'cuda:0',
+        device_map = 'cuda:1',
         # attn_implementation = 'eager'
     )
     model.seqlen = seqlen
